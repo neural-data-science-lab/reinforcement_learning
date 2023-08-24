@@ -3,7 +3,7 @@ import os
 import time
 
 import gymnasium as gym
-from stable_baselines3 import PPO
+from stable_baselines3 import SAC
 
 from sb3_contrib import TRPO
 from plot_results import get_experiment_info
@@ -16,9 +16,9 @@ if __name__ == '__main__':
     experiment_path = args.fpath
     info = get_experiment_info(experiment_path)
 
-    env = gym.make(info["env_type"], render_mode="human")
+    env = gym.make(info["env"], render_mode="human")
 
-    model = PPO.load(os.path.join(experiment_path, "model"), print_system_info=True)
+    model = SAC.load(os.path.join(experiment_path, "model"), print_system_info=True)
 
     obs, _ = env.reset()
     for i in range(3000):
