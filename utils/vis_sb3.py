@@ -4,6 +4,7 @@ import time
 
 import gymnasium as gym
 from stable_baselines3 import SAC
+from sb3_contrib import CicDDPG
 
 from sb3_contrib import TRPO
 from plot_results import get_experiment_info
@@ -11,6 +12,7 @@ from plot_results import get_experiment_info
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('fpath', type=str)
+    parser.add_argument('--algo', default="CicDDPG", type=str, help="name of the algorithm")
     args = parser.parse_args()
 
     experiment_path = args.fpath
@@ -18,7 +20,10 @@ if __name__ == '__main__':
 
     env = gym.make(info["env"], render_mode="human")
 
-    model = SAC.load(os.path.join(experiment_path, "model"), print_system_info=True)
+    if args.algo == "CicDDPG":
+        model = CicDDPG.load(os.path.join(experiment_path, "model"), print_system_info=True)
+    else:
+        raise KeyError(f"Algorithm {args.algo} unknown")
 
     obs, _ = env.reset()
     for i in range(3000):
