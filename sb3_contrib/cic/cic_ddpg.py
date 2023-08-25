@@ -13,7 +13,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import get_parameters_by_name, polyak_update
 from stable_baselines3.td3.policies import Actor, CnnPolicy, MlpPolicy, MultiInputPolicy, TD3Policy
 
-SelfTD3 = TypeVar("SelfTD3", bound="TD3")
+SelfCicDDPG = TypeVar("SelfCicDDPG", bound="CicDDPG")
 
 
 class CicDDPG(OffPolicyAlgorithm):
@@ -61,7 +61,7 @@ class CicDDPG(OffPolicyAlgorithm):
     :param seed: Seed for the pseudo random generators
     :param device: Device (cpu, cuda, ...) on which the code should be run.
         Setting it to auto, the code will be run on the GPU if possible.
-    :param _init_setup_model: Whether or not to build the network at the creation of the instance
+    :param _init_setup_model: Whether to build the network at the creation of the instance
     """
 
     policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
@@ -170,6 +170,7 @@ class CicDDPG(OffPolicyAlgorithm):
                 next_actions = (self.actor_target(replay_data.next_observations) + noise).clamp(-1, 1)
 
                 # Compute the next Q-values: min over all critics targets
+                # TODO: Compute cpc-loss and knn-reward and replace extr rewards with CIC reward (which is knn+cpc)
                 next_q_values = th.cat(self.critic_target(replay_data.next_observations, next_actions), dim=1)
                 next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                 target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
@@ -210,14 +211,14 @@ class CicDDPG(OffPolicyAlgorithm):
         self.logger.record("train/critic_loss", np.mean(critic_losses))
 
     def learn(
-        self: SelfTD3,
+        self: SelfCicDDPG,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 4,
         tb_log_name: str = "TD3",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> SelfTD3:
+    ) -> SelfCicDDPG:
         return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,

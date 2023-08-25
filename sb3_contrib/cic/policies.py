@@ -59,6 +59,13 @@ class Actor(BasePolicy):
         # Deterministic action
         self.mu = nn.Sequential(*actor_net)
 
+        # TODO: add the key_net: pass obs and obs_next through features_extractor and return query and key
+        # TODO: take skill dim from observation space
+        skill_dim = 5
+        skill_embed_dim = 5
+        self.key_net = create_mlp(2*features_dim, skill_dim, net_arch, activation_fn, squash_output=True)
+        self.skill_net = create_mlp(skill_dim, skill_embed_dim, net_arch, activation_fn, squash_output=True)
+
     def _get_constructor_parameters(self) -> Dict[str, Any]:
         data = super()._get_constructor_parameters()
 
@@ -75,6 +82,7 @@ class Actor(BasePolicy):
     def forward(self, obs: th.Tensor) -> th.Tensor:
         # assert deterministic, 'The TD3 actor only outputs deterministic actions'
         features = self.extract_features(obs, self.features_extractor)
+        # TODO: add skill-net; split obs; pass through each and return stacked feature vector
         return self.mu(features)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
