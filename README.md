@@ -4,6 +4,45 @@ This is just a place for me to play with sb3 algorithms. This repo is based on t
 
 [![CI](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/workflows/CI/badge.svg)](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/actions) [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+## Setup
+1. Create a conda env (I used python 3.8)
+2. Install dependencies
+```shell
+pip install stable_baselines3 pyyaml tensorboard tqdm rich
+```
+3. Install this repo in editable mode
+```shell
+pip install -e . 
+```
+4. Install additional environments you want to use, for example for the gymnasium box2d environments:
+```shell
+pip install swig
+```
+```shell
+pip install 'gymnasium[box2d]'
+```
+or mujoco:
+```shell
+pip install 'cython<2'
+```
+```shell
+pip install mujoco mujoco_py
+```
+For mujoco, also follow the instructions here to install the mujoco binaries on your system: https://github.com/openai/mujoco-py
+
+## NeurDS-Lab Visual RL Environments
+You could also find interesting the training environments we use for studying representation learning.
+These are mostly visual rl environments (rl from pixel observations).
+1. Deepmind control suite:
+```shell
+pip install dm_control
+```
+2. Deepmind lab. You can use our apptainer image:
+https://gitlab.mpcdf.mpg.de/mpcdf-dataanalytics/deepmind-lab/
+3. Causal World (apptainer image coming soon)
+4. Topoworld (Custom maze environments with varying topological complexity based on Minigrid and Miniworld)
+5. Atari Benchmark (Ask Charlotte)
+
 # Stable-Baselines3 - Contrib (SB3-Contrib)
 
 Contrib package for [Stable-Baselines3](https://github.com/DLR-RM/stable-baselines3) - Experimental reinforcement learning (RL) code.
