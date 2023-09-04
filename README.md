@@ -33,14 +33,13 @@ For mujoco, also follow the instructions here to install the mujoco binaries on 
 ## NeurDS-Lab Visual RL Environments
 You could also find interesting the training environments we use for studying representation learning.
 These are mostly visual rl environments (rl from pixel observations).
-1. Deepmind control suite:
-```shell
-pip install dm_control
-```
+1. Deepmind control suite. Install with 
+`pip install dm_control` (you will need mujoco from above for the basic suite of envs though).
+Custom envs based on unsupervised rl benchmark and openai gym coming soon.
 2. Deepmind lab. You can use our apptainer image:
 https://gitlab.mpcdf.mpg.de/mpcdf-dataanalytics/deepmind-lab/
 3. Causal World (apptainer image coming soon)
-4. Topoworld (Custom maze environments with varying topological complexity based on Minigrid and Miniworld)
+4. Topoworld (Custom maze environments with varying topological complexity based on Minigrid and Miniworld): https://github.com/milosen/topoworld
 5. Atari Benchmark (Ask Charlotte)
 
 # Stable-Baselines3 - Contrib (SB3-Contrib)
