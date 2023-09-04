@@ -24,7 +24,7 @@ action_spec = env.action_spec()
 time_step = env.reset()
 
 exp_path = os.path.join("results", env_name, "random_agent")
-os.makedirs("img", exist_ok=True)
+os.makedirs(exp_path, exist_ok=True)
 frames = []
 while not time_step.last():
     for i in range(max_frame):
