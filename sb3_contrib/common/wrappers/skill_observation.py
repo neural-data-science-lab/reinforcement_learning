@@ -23,7 +23,6 @@ class SkillObservationWrapper(gym.Wrapper):
         else:
             raise KeyError(f"Skill domain {skill_domain} unknown.")
 
-        # Add a time feature to the observation
         if isinstance(env.observation_space, spaces.Dict):
             env.observation_space.spaces["skill"] = self.skill_space
         else:

@@ -11,7 +11,7 @@ from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy, ContinuousCritic
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_parameters_by_name, polyak_update
-from stable_baselines3.td3.policies import Actor, CnnPolicy, MlpPolicy, MultiInputPolicy, TD3Policy
+from sb3_contrib.cic.policies import Actor, CnnPolicy, MlpPolicy, MultiInputPolicy, CICPolicy
 
 SelfCicDDPG = TypeVar("SelfCicDDPG", bound="CicDDPG")
 
@@ -69,7 +69,7 @@ class CicDDPG(OffPolicyAlgorithm):
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,
     }
-    policy: TD3Policy
+    policy: CICPolicy
     actor: Actor
     actor_target: Actor
     critic: ContinuousCritic
@@ -77,7 +77,7 @@ class CicDDPG(OffPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, Type[TD3Policy]],
+        policy: Union[str, Type[CICPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 1e-3,
         buffer_size: int = 1_000_000,  # 1e6
@@ -161,6 +161,7 @@ class CicDDPG(OffPolicyAlgorithm):
         for _ in range(gradient_steps):
             self._n_updates += 1
             # Sample replay buffer
+            # TODO: skill vector will be part of the observation
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)  # type: ignore[union-attr]
 
             with th.no_grad():

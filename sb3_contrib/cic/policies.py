@@ -19,7 +19,7 @@ from stable_baselines3.common.type_aliases import Schedule
 
 class Actor(BasePolicy):
     """
-    Actor network (policy) for TD3.
+    Actor network (policy) for CIC.
 
     :param observation_space: Obervation space
     :param action_space: Action space
@@ -61,9 +61,9 @@ class Actor(BasePolicy):
 
         # TODO: add the key_net: pass obs and obs_next through features_extractor and return query and key
         # TODO: take skill dim from observation space
-        skill_dim = 5
-        skill_embed_dim = 5
-        self.key_net = create_mlp(2*features_dim, skill_dim, net_arch, activation_fn, squash_output=True)
+        skill_dim = self.observation_space["skill"].shape[0]
+        skill_embed_dim = skill_dim
+        self.key_net = create_mlp(2*features_dim, skill_embed_dim, net_arch, activation_fn, squash_output=True)
         self.skill_net = create_mlp(skill_dim, skill_embed_dim, net_arch, activation_fn, squash_output=True)
 
     def _get_constructor_parameters(self) -> Dict[str, Any]:
@@ -80,20 +80,20 @@ class Actor(BasePolicy):
         return data
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
-        # assert deterministic, 'The TD3 actor only outputs deterministic actions'
-        features = self.extract_features(obs, self.features_extractor)
+        # assert deterministic, 'The CIC actor only outputs deterministic actions'
         # TODO: add skill-net; split obs; pass through each and return stacked feature vector
-        return self.mu(features)
+        obs_features, skill_features = self.extract_features(obs, self.features_extractor)
+        return self.mu(obs_features)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        # Note: the deterministic deterministic parameter is ignored in the case of TD3.
+        # Note: the deterministic parameter is ignored in the case of CIC.
         #   Predictions are always deterministic.
         return self(observation)
 
 
-class TD3Policy(BasePolicy):
+class CICPolicy(BasePolicy):
     """
-    Policy class (with both actor and critic) for TD3.
+    Policy class (with both actor and critic) for CIC.
 
     :param observation_space: Observation space
     :param action_space: Action space
@@ -245,7 +245,7 @@ class TD3Policy(BasePolicy):
         return self._predict(observation, deterministic=deterministic)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        # Note: the deterministic deterministic parameter is ignored in the case of TD3.
+        # Note: the deterministic deterministic parameter is ignored in the case of CIC.
         #   Predictions are always deterministic.
         return self.actor(observation)
 
@@ -262,12 +262,12 @@ class TD3Policy(BasePolicy):
         self.training = mode
 
 
-MlpPolicy = TD3Policy
+MlpPolicy = CICPolicy
 
 
-class CnnPolicy(TD3Policy):
+class CnnPolicy(CICPolicy):
     """
-    Policy class (with both actor and critic) for TD3.
+    Policy class (with both actor and critic) for CIC.
 
     :param observation_space: Observation space
     :param action_space: Action space
@@ -319,9 +319,9 @@ class CnnPolicy(TD3Policy):
         )
 
 
-class MultiInputPolicy(TD3Policy):
+class MultiInputPolicy(CICPolicy):
     """
-    Policy class (with both actor and critic) for TD3 to be used with Dict observation spaces.
+    Policy class (with both actor and critic) for CIC to be used with Dict observation spaces.
 
     :param observation_space: Observation space
     :param action_space: Action space
