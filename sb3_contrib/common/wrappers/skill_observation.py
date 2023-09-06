@@ -9,7 +9,7 @@ TimeFeatureObs = Union[np.ndarray, Dict[str, np.ndarray]]
 
 
 class SkillObservationWrapper(gym.Wrapper):
-    def __init__(self, env: gym.Env, n_skills: int = 5, skill_domain: str = "continuous"):
+    def __init__(self, env: gym.Env, n_skills: int = 5, skill_domain: str = "continuous", reward_free: bool = True):
         super().__init__(env)
         assert isinstance(
             env.observation_space, (spaces.Discrete, spaces.Box, spaces.Dict)
@@ -17,7 +17,7 @@ class SkillObservationWrapper(gym.Wrapper):
            "`gym.spaces.Dict` observation spaces."
 
         if skill_domain == "continuous":
-            self.skill_space = gym.spaces.Box(low=-1, high=1, shape=(n_skills,), dtype=np.float)
+            self.skill_space = gym.spaces.Box(low=-1, high=1, shape=(n_skills,), dtype=float)
         elif skill_domain == "discrete":
             self.skill_space = gym.spaces.Discrete(n=n_skills)
         else:
@@ -33,21 +33,26 @@ class SkillObservationWrapper(gym.Wrapper):
 
         self.current_skill = self.skill_space.sample()
 
+        self.reward_free = reward_free
+
     def reset(self, skill=None, **kwargs):
         obs, info = self.env.reset(**kwargs)
         self.current_skill = skill or self.skill_space.sample()
-        return self._get_obs(obs), info
+        return self._get_obs(obs, skill), info
 
-    def step(self, action: ActType):
+    def step(self, action: ActType, skill=None):
         # make sure there is no reward
-        obs, _, done, truncated, info = self.env.step(action)
-        return self._get_obs(obs), 0, done, truncated, info
+        obs, reward, done, truncated, info = self.env.step(action)
+        r = 0 if self.reward_free else reward
+        return self._get_obs(obs, skill), 0, done, truncated, info
 
-    def _get_obs(self, obs, skill=None):
-        """
-        Add skill to the current observation.
-        """
-        return {
-            "observation": obs,
-            "skill": self.current_skill
-        }
+    def _get_obs(self, obs, skill):
+        """Add skill to the current observation."""
+        if isinstance(obs, dict):
+            obs["skill"] = self.current_skill
+        else:
+            obs = {
+                "observation": obs,
+                "skill": skill or self.current_skill
+            }
+        return obs
