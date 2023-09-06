@@ -56,3 +56,6 @@ class SkillObservationWrapper(gym.Wrapper):
                 "skill": skill or self.current_skill
             }
         return obs
+
+    def env_is_wrapped(self, wrapper_):
+        return True

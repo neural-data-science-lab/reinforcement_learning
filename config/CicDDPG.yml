@@ -3,13 +3,11 @@
 # Tuned
 MountainCarContinuous-v0:
   n_timesteps: 300000
-  policy: 'MlpPolicy'
   noise_type: 'ornstein-uhlenbeck'
   noise_std: 0.5
 
 Pendulum-v1:
   n_timesteps: 20000
-  policy: 'MlpPolicy'
   gamma: 0.98
   buffer_size: 200000
   learning_starts: 10000
@@ -22,7 +20,6 @@ Pendulum-v1:
 
 LunarLanderContinuous-v2:
   n_timesteps: !!float 3e5
-  policy: 'MlpPolicy'
   gamma: 0.98
   buffer_size: 200000
   learning_starts: 10000
@@ -35,7 +32,6 @@ LunarLanderContinuous-v2:
 
 BipedalWalker-v3:
   n_timesteps: !!float 1e6
-  policy: 'MlpPolicy'
   gamma: 0.98
   buffer_size: 200000
   learning_starts: 10000
@@ -49,7 +45,6 @@ BipedalWalker-v3:
 # To be tuned
 BipedalWalkerHardcore-v3:
   n_timesteps: !!float 1e7
-  policy: 'MlpPolicy'
   gamma: 0.99
   buffer_size: 1000000
   learning_starts: 10000
@@ -63,7 +58,6 @@ BipedalWalkerHardcore-v3:
 # Tuned
 HalfCheetahBulletEnv-v0: &pybullet-defaults
   n_timesteps: !!float 1e6
-  policy: 'MlpPolicy'
   gamma: 0.98
   buffer_size: 200000
   learning_starts: 10000
@@ -87,7 +81,6 @@ Walker2DBulletEnv-v0:
 # TO BE tested
 HumanoidBulletEnv-v0:
   n_timesteps: !!float 2e6
-  policy: 'MlpPolicy'
   gamma: 0.98
   buffer_size: 200000
   learning_starts: 10000
@@ -114,7 +107,6 @@ InvertedPendulumSwingupBulletEnv-v0:
 
 MinitaurBulletEnv-v0:
   n_timesteps: !!float 1e6
-  policy: 'MlpPolicy'
   gamma: 0.99
   buffer_size: 1000000
   noise_type: 'normal'
@@ -130,7 +122,6 @@ MinitaurBulletEnv-v0:
 
 HalfCheetah-v3: &mujoco-defaults
   n_timesteps: !!float 1e6
-  policy: 'MlpPolicy'
   learning_starts: 10000
   noise_type: 'normal'
   noise_std: 0.1

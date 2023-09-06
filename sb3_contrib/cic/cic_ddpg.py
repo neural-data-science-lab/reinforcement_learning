@@ -30,7 +30,6 @@ class CicDDPG(DDPG):
 
     def __init__(
             self,
-            policy: Union[str, Type[CICPolicy]],
             env: Union[GymEnv, str],
             learning_rate: Union[float, Schedule] = 1e-3,
             buffer_size: int = 1_000_000,  # 1e6
@@ -53,8 +52,9 @@ class CicDDPG(DDPG):
             alpha: float = 0.5,
             cpc_temp: float = 0.5,
     ):
+        # TODO: check env is wrapped in skill_obs_wrapper
         super().__init__(
-            policy=policy,
+            policy=CICPolicy,
             env=env,
             learning_rate=learning_rate,
             buffer_size=buffer_size,
@@ -74,7 +74,6 @@ class CicDDPG(DDPG):
             seed=seed,
             optimize_memory_usage=optimize_memory_usage,
         )
-        assert env is SkillObservationWrapper
         self.cpc_temp = cpc_temp
         self.alpha = alpha
         self.reward_rms = RMS(epsilon=1e-4, shape=(1,), device=self.device)

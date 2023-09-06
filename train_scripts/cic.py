@@ -1,6 +1,7 @@
 import datetime
 import os
 import shutil
+import sys
 from argparse import ArgumentParser
 
 import yaml
@@ -9,6 +10,8 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.logger import configure as sb3_configure_logger
 import gymnasium as gym
+
+from sb3_contrib.common.wrappers.skill_observation import SkillObservationWrapper
 
 
 def write_info(experiment_path, info):
@@ -38,11 +41,16 @@ def train_sb3():
     set_random_seed(args.seed)
 
     env = gym.make(args.env)
+    env = SkillObservationWrapper(env)
+
+    print(env.observation_space)
 
     if args.algo == "CicDDPG":
         model = CicDDPG(env=env, **params)
     else:
         raise KeyError(f"Algorithm {args.algo} unknown")
+
+    print(model.get_env().observation_space)
 
     experiment_path = os.path.join("results", args.env, f"{args.algo}", f"s{args.seed}")
 

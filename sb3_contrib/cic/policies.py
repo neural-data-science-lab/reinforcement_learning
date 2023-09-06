@@ -112,7 +112,7 @@ class CICDiscriminator(BaseModel):
         normalize_images: bool = True,
         share_features_extractor: bool = True,
     ):
-        skill_space = observation_space.spaces.pop("skill")
+        skill_space = observation_space.spaces["skill"]
         super().__init__(
             observation_space,
             skill_space,
@@ -148,6 +148,20 @@ class CICDiscriminator(BaseModel):
         query = self.query_net(skill)
         key = self.key_net(th.cat([state_features, next_state_features], dim=1))
         return query, key
+
+    def _get_constructor_parameters(self) -> Dict[str, Any]:
+        """
+        Get data that need to be saved in order to re-create the model when loading it from disk.
+
+        :return: The dictionary to pass to the as kwargs constructor when reconstruction this model.
+        """
+        return dict(
+            observation_space=self.observation_space,
+            # Passed to the constructor by child class
+            # squash_output=self.squash_output,
+            # features_extractor=self.features_extractor
+            normalize_images=self.normalize_images,
+        )
 
 
 class CICPolicy(BasePolicy):
@@ -225,6 +239,7 @@ class CICPolicy(BasePolicy):
         }
         self.actor_kwargs = self.net_args.copy()
         self.critic_kwargs = self.net_args.copy()
+        self.discriminator_kwargs = {key: value for key, value in self.net_args.items() if key != "action_space"}
         self.critic_kwargs.update(
             {
                 "n_critics": n_critics,
