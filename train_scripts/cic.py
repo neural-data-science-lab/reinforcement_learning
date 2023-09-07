@@ -11,6 +11,7 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.logger import configure as sb3_configure_logger
 import gymnasium as gym
 
+import mnist_env
 from sb3_contrib.common.wrappers.skill_observation import SkillObservationWrapper
 
 
@@ -22,7 +23,7 @@ def write_info(experiment_path, info):
 def train_sb3():
     parser = ArgumentParser()
     parser.add_argument('--algo', default="CicDDPG", type=str, help="name of the algorithm")
-    parser.add_argument('--env', default="Pendulum-v1", type=str, help="name of the gym environment")
+    parser.add_argument('--env', default="GymMNIST-v0", type=str, help="name of the gym environment")
     parser.add_argument('--seed', default=0, type=int, help="manual seed")
     args = parser.parse_args()
 

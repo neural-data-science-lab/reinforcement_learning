@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Type, Union, Tuple
 
 import torch as th
 from gymnasium import spaces
+from stable_baselines3.td3.policies import TD3Policy
 from torch import nn
 
 from stable_baselines3.common.policies import BasePolicy, ContinuousCritic, BaseModel
@@ -19,76 +20,11 @@ from stable_baselines3.common.type_aliases import Schedule
 from sb3_contrib.cic.torch_layers import CICExtractor
 
 
-class Actor(BasePolicy):
-    """
-    Actor network (policy) for CIC.
-
-    :param observation_space: Obervation space
-    :param action_space: Action space
-    :param net_arch: Network architecture
-    :param features_extractor: Network to extract features
-        (a CNN when using images, a nn.Flatten() layer otherwise)
-    :param features_dim: Number of features
-    :param activation_fn: Activation function
-    :param normalize_images: Whether to normalize images or not,
-         dividing by 255.0 (True by default)
-    """
-
-    def __init__(
-        self,
-        observation_space: spaces.Space,
-        action_space: spaces.Box,
-        net_arch: List[int],
-        features_extractor: nn.Module,
-        features_dim: int,
-        activation_fn: Type[nn.Module] = nn.ReLU,
-        normalize_images: bool = True,
-    ):
-        super().__init__(
-            observation_space,
-            action_space,
-            features_extractor=features_extractor,
-            normalize_images=normalize_images,
-            squash_output=True,
-        )
-
-        self.net_arch = net_arch
-        self.features_dim = features_dim
-        self.activation_fn = activation_fn
-
-        action_dim = get_action_dim(self.action_space)
-        actor_net = create_mlp(features_dim, action_dim, net_arch, activation_fn, squash_output=True)
-        # Deterministic action
-        self.mu = nn.Sequential(*actor_net)
-
-    def _get_constructor_parameters(self) -> Dict[str, Any]:
-        data = super()._get_constructor_parameters()
-
-        data.update(
-            dict(
-                net_arch=self.net_arch,
-                features_dim=self.features_dim,
-                activation_fn=self.activation_fn,
-                features_extractor=self.features_extractor,
-            )
-        )
-        return data
-
-    def forward(self, obs: th.Tensor) -> th.Tensor:
-        obs_features = self.extract_features(obs, self.features_extractor)
-        return self.mu(obs_features)
-
-    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        # Note: the deterministic parameter is ignored in the case of CIC.
-        #   Predictions are always deterministic.
-        return self(observation)
-
-
 class CICDiscriminator(BaseModel):
     """
     Discriminator network(s) for CIC. Computes query h_z and key h_tau.
 
-    :param observation_space: Obervation space
+    :param observation_space: Observation space
     :param action_space: Action space
     :param net_arch: Network architecture
     :param features_extractor: Network to extract features
@@ -105,31 +41,30 @@ class CICDiscriminator(BaseModel):
     def __init__(
         self,
         observation_space: spaces.Dict,
+        action_space: spaces.Box,
         net_arch: List[int],
         features_extractor: CICExtractor,
         features_dim: int,
         activation_fn: Type[nn.Module] = nn.ReLU,
         normalize_images: bool = True,
+        n_critics: int = 2,
         share_features_extractor: bool = True,
     ):
         skill_space = observation_space.spaces["skill"]
         super().__init__(
             observation_space,
-            skill_space,
+            action_space,
             features_extractor=features_extractor,
             normalize_images=normalize_images,
         )
 
         skill_dim = get_action_dim(skill_space)
+        features_dim = features_extractor.get_state_features_dim()
 
         self.share_features_extractor = share_features_extractor
-        self.state_net = nn.Sequential(*create_mlp(features_dim, skill_dim, net_arch, activation_fn))
+        self.state_net = nn.Sequential(*create_mlp(features_dim, features_dim, net_arch, activation_fn))
         self.key_net = nn.Sequential(*create_mlp(2 * features_dim, skill_dim, net_arch, activation_fn))
         self.query_net = nn.Sequential(*create_mlp(skill_dim, skill_dim, net_arch, activation_fn))
-
-        self.add_module(f"disc_state_net", self.state_net)
-        self.add_module(f"disc_key_net", self.key_net)
-        self.add_module(f"disc_query_net", self.query_net)
 
     def extract_features(self, obs: th.Tensor, features_extractor: CICExtractor) -> Tuple[th.Tensor, th.Tensor]:
         """
@@ -146,8 +81,13 @@ class CICDiscriminator(BaseModel):
         skill, state_features = self.extract_features(obs, self.features_extractor)
         _, next_state_features = self.extract_features(obs_next, self.features_extractor)
         query = self.query_net(skill)
-        key = self.key_net(th.cat([state_features, next_state_features], dim=1))
+        key = self.key_net(th.cat([self.state_net(state_features), self.state_net(next_state_features)], dim=-1))
         return query, key
+
+    def transition_forward(self, obs: th.Tensor, obs_next: th.Tensor) -> Tuple[th.Tensor, ...]:
+        _, state_features = self.extract_features(obs, self.features_extractor)
+        _, next_state_features = self.extract_features(obs_next, self.features_extractor)
+        return self.state_net(state_features), self.state_net(next_state_features)
 
     def _get_constructor_parameters(self) -> Dict[str, Any]:
         """
@@ -164,7 +104,7 @@ class CICDiscriminator(BaseModel):
         )
 
 
-class CICPolicy(BasePolicy):
+class CICPolicy(TD3Policy):
     """
     Policy class (with both actor and critic) for CIC.
 
@@ -186,11 +126,6 @@ class CICPolicy(BasePolicy):
     :param share_features_extractor: Whether to share or not the features extractor
         between the actor and the critic (this saves computation time)
     """
-
-    actor: Actor
-    actor_target: Actor
-    critic: ContinuousCritic
-    critic_target: ContinuousCritic
     discriminator: CICDiscriminator
 
     def __init__(
@@ -209,85 +144,24 @@ class CICPolicy(BasePolicy):
         share_features_extractor: bool = False,
     ):
         super().__init__(
-            observation_space,
-            action_space,
-            features_extractor_class,
-            features_extractor_kwargs,
+            observation_space=observation_space,
+            action_space=action_space,
+            lr_schedule=lr_schedule,
+            net_arch=net_arch,
+            activation_fn=activation_fn,
+            features_extractor_class=features_extractor_class,
+            features_extractor_kwargs=features_extractor_kwargs,
+            normalize_images=normalize_images,
             optimizer_class=optimizer_class,
             optimizer_kwargs=optimizer_kwargs,
-            squash_output=True,
-            normalize_images=normalize_images,
+            n_critics=n_critics,
+            share_features_extractor=share_features_extractor,
         )
-
-        # Default network architecture, from the original paper
-        if net_arch is None:
-            if features_extractor_class == NatureCNN:
-                net_arch = [256, 256]
-            else:
-                net_arch = [400, 300]
-
-        actor_arch, critic_arch = get_actor_critic_arch(net_arch)
-
-        self.net_arch = net_arch
-        self.activation_fn = activation_fn
-        self.net_args = {
-            "observation_space": self.observation_space,
-            "action_space": self.action_space,
-            "net_arch": actor_arch,
-            "activation_fn": self.activation_fn,
-            "normalize_images": normalize_images,
-        }
-        self.actor_kwargs = self.net_args.copy()
-        self.critic_kwargs = self.net_args.copy()
-        self.discriminator_kwargs = {key: value for key, value in self.net_args.items() if key != "action_space"}
-        self.critic_kwargs.update(
-            {
-                "n_critics": n_critics,
-                "net_arch": critic_arch,
-                "share_features_extractor": share_features_extractor,
-            }
-        )
-
-        self.share_features_extractor = share_features_extractor
-
-        self._build(lr_schedule)
 
     def _build(self, lr_schedule: Schedule) -> None:
-        # Create actor and target
-        # the features extractor should not be shared
-        self.actor = self.make_actor(features_extractor=None)
-        self.actor_target = self.make_actor(features_extractor=None)
-        # Initialize the target to have the same weights as the actor
-        self.actor_target.load_state_dict(self.actor.state_dict())
-
-        self.actor.optimizer = self.optimizer_class(
-            self.actor.parameters(),
-            lr=lr_schedule(1),  # type: ignore[call-arg]
-            **self.optimizer_kwargs,
-        )
-
-        if self.share_features_extractor:
-            self.critic = self.make_critic(features_extractor=self.actor.features_extractor)
-            # Critic target should not share the features extractor with critic
-            # but it can share it with the actor target as actor and critic are sharing
-            # the same features_extractor too
-            # NOTE: as a result the effective poliak (soft-copy) coefficient for the features extractor
-            # will be 2 * tau instead of tau (updated one time with the actor, a second time with the critic)
-            self.critic_target = self.make_critic(features_extractor=self.actor_target.features_extractor)
-        else:
-            # Create new features extractor for each network
-            self.critic = self.make_critic(features_extractor=None)
-            self.critic_target = self.make_critic(features_extractor=None)
-
+        super()._build(lr_schedule=lr_schedule)
         # imo the discriminator should share feature extractor with target networks
         self.discriminator = self.make_discriminator(features_extractor=self.actor_target.features_extractor)
-
-        self.critic_target.load_state_dict(self.critic.state_dict())
-        self.critic.optimizer = self.optimizer_class(
-            self.critic.parameters(),
-            lr=lr_schedule(1),  # type: ignore[call-arg]
-            **self.optimizer_kwargs,
-        )
 
         self.discriminator.optimizer = self.optimizer_class(
             self.discriminator.parameters(),
@@ -295,48 +169,14 @@ class CICPolicy(BasePolicy):
             **self.optimizer_kwargs,
         )
 
-        # Target networks should always be in eval mode
+        # From super method: "Target networks should always be in eval mode"
+        # self.actor_target.set_training_mode(False)
+        # self.critic_target.set_training_mode(False)
         # TODO: think about what this means for the discriminator
-        self.actor_target.set_training_mode(False)
-        self.critic_target.set_training_mode(False)
-
-    def _get_constructor_parameters(self) -> Dict[str, Any]:
-        data = super()._get_constructor_parameters()
-
-        data.update(
-            dict(
-                net_arch=self.net_arch,
-                activation_fn=self.net_args["activation_fn"],
-                n_critics=self.critic_kwargs["n_critics"],
-                lr_schedule=self._dummy_schedule,  # dummy lr schedule, not needed for loading policy alone
-                optimizer_class=self.optimizer_class,
-                optimizer_kwargs=self.optimizer_kwargs,
-                features_extractor_class=self.features_extractor_class,
-                features_extractor_kwargs=self.features_extractor_kwargs,
-                share_features_extractor=self.share_features_extractor,
-            )
-        )
-        return data
-
-    def make_actor(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> Actor:
-        actor_kwargs = self._update_features_extractor(self.actor_kwargs, features_extractor)
-        return Actor(**actor_kwargs).to(self.device)
-
-    def make_critic(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> ContinuousCritic:
-        critic_kwargs = self._update_features_extractor(self.critic_kwargs, features_extractor)
-        return ContinuousCritic(**critic_kwargs).to(self.device)
 
     def make_discriminator(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> CICDiscriminator:
-        discriminator_kwargs = self._update_features_extractor(self.discriminator_kwargs, features_extractor)
+        discriminator_kwargs = self._update_features_extractor(self.critic_kwargs, features_extractor)
         return CICDiscriminator(**discriminator_kwargs).to(self.device)
-
-    def forward(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        return self._predict(observation, deterministic=deterministic)
-
-    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        # Note: the deterministic parameter is ignored in the case of CIC.
-        #   Predictions are always deterministic.
-        return self.actor(observation)
 
     def set_training_mode(self, mode: bool) -> None:
         """
@@ -346,9 +186,5 @@ class CICPolicy(BasePolicy):
 
         :param mode: if true, set to training mode, else set to evaluation mode
         """
-        self.actor.set_training_mode(mode)
-        self.critic.set_training_mode(mode)
-        self.training = mode
-
-
-MultiInputPolicy = CICPolicy
+        super().set_training_mode(mode)
+        self.discriminator.set_training_mode(mode)

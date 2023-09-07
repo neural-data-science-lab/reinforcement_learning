@@ -1,3 +1,4 @@
+import sys
 from typing import Dict, List, Tuple, Type, Union
 
 import gymnasium as gym
@@ -6,7 +7,7 @@ from gymnasium import spaces
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, NatureCNN
 from torch import nn
 
-from stable_baselines3.common.preprocessing import get_flattened_obs_dim, is_image_space
+from stable_baselines3.common.preprocessing import get_flattened_obs_dim, is_image_space, get_action_dim
 from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.utils import get_device
 
@@ -32,8 +33,6 @@ class CICExtractor(BaseFeaturesExtractor):
         observation_space: spaces.Dict,
         cnn_output_dim: int = 256,
         normalized_image: bool = False,
-        skill_projection_hidden_dim: int = 64,
-        skill_dim: int = 32,
     ) -> None:
         # TODO we do not know features-dim here before going over all the items, so put something there. This is dirty!
         super().__init__(observation_space, features_dim=1)
@@ -41,7 +40,7 @@ class CICExtractor(BaseFeaturesExtractor):
         extractors: Dict[str, nn.Module] = {}
 
         assert "skill" in observation_space.spaces.keys()
-        self.skill_dim = skill_dim
+        self.skill_dim = get_action_dim(observation_space.spaces["skill"])
 
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
@@ -49,7 +48,7 @@ class CICExtractor(BaseFeaturesExtractor):
                 extractors[key] = NatureCNN(subspace, features_dim=cnn_output_dim, normalized_image=normalized_image)
                 total_concat_size += cnn_output_dim
             elif key == "skill":
-                extractors[key] = nn.Identity()
+                extractors[key] = nn.Flatten()
                 total_concat_size += self.skill_dim
             else:
                 # The observation key is a vector, flatten it if needed
@@ -70,11 +69,10 @@ class CICExtractor(BaseFeaturesExtractor):
 
     def state_forward(self, observations: TensorDict) -> th.Tensor:
         encoded_tensor_list = []
-
         for key, extractor in self.extractors.items():
             if key != "skill":
                 encoded_tensor_list.append(extractor(observations[key]))
-        return th.cat(encoded_tensor_list, dim=1)
+        return th.cat(encoded_tensor_list, dim=-1)
 
     def skill_forward(self, observations: TensorDict) -> th.Tensor:
         return self.extractors["skill"](observations["skill"])
@@ -82,6 +80,9 @@ class CICExtractor(BaseFeaturesExtractor):
     def split_forward(self, observations: TensorDict) -> Tuple[th.Tensor, th.Tensor]:
         """return tuple of extracted features without concatenation (skill_features, state_features)"""
         return self.skill_forward(observations), self.state_forward(observations)
+
+    def get_features_dim(self):
+        return self._features_dim
 
     def get_state_features_dim(self):
         return self._features_dim - self.skill_dim

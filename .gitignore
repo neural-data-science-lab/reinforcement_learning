@@ -49,3 +49,4 @@ src
 MUJOCO_LOG.TXT
 
 results
+mnist_data

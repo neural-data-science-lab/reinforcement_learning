@@ -37,7 +37,7 @@ class SkillObservationWrapper(gym.Wrapper):
 
     def reset(self, skill=None, **kwargs):
         obs, info = self.env.reset(**kwargs)
-        self.current_skill = skill or self.skill_space.sample()
+        self.current_skill = skill if skill is not None else self.skill_space.sample()
         return self._get_obs(obs, skill), info
 
     def step(self, action: ActType, skill=None):
@@ -53,9 +53,6 @@ class SkillObservationWrapper(gym.Wrapper):
         else:
             obs = {
                 "observation": obs,
-                "skill": skill or self.current_skill
+                "skill": skill if skill is not None else self.current_skill
             }
         return obs
-
-    def env_is_wrapped(self, wrapper_):
-        return True
